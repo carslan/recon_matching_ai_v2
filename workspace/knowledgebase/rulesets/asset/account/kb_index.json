@@ -1,0 +1,242 @@
+{
+  "workspace": "asset",
+  "ruleset": "account",
+  "generated_at": "2026-03-26T06:08:52.657700+00:00",
+  "files": {
+    "agent_matching_rules.json": {
+      "size_bytes": 41,
+      "modified_at": "2026-03-26T05:24:50.731702+00:00"
+    },
+    "core_matching_rules.json": {
+      "size_bytes": 3659,
+      "modified_at": "2026-03-26T05:24:50.731702+00:00"
+    },
+    "features.json": {
+      "size_bytes": 467,
+      "modified_at": "2026-03-26T05:24:50.731702+00:00"
+    },
+    "how_to_work.md": {
+      "size_bytes": 531,
+      "modified_at": "2026-03-26T05:24:50.731702+00:00"
+    },
+    "identity.md": {
+      "size_bytes": 491,
+      "modified_at": "2026-03-26T05:24:50.731702+00:00"
+    },
+    "kb_index.json": {
+      "size_bytes": 6195,
+      "modified_at": "2026-03-26T05:52:20.641958+00:00"
+    },
+    "schema_structure.json": {
+      "size_bytes": 3249,
+      "modified_at": "2026-03-26T05:24:50.730702+00:00"
+    },
+    "soul.md": {
+      "size_bytes": 446,
+      "modified_at": "2026-03-26T05:24:50.731702+00:00"
+    }
+  },
+  "markdown_sections": [
+    {
+      "heading": "Identity",
+      "level": 1,
+      "byte_offset": 0,
+      "byte_length": 44,
+      "tags": [
+        "mission",
+        "outputs"
+      ],
+      "summary": "",
+      "file": "identity.md"
+    },
+    {
+      "heading": "Mission",
+      "level": 2,
+      "byte_offset": 44,
+      "byte_length": 211,
+      "tags": [],
+      "summary": "You are a reconciliation matching agent for the **account** ruleset. Your job is to match records between Side A and Side B of a dataset,\nidentify exclusions, and report breaks with clear reasoning.",
+      "file": "identity.md"
+    },
+    {
+      "heading": "Outputs",
+      "level": 2,
+      "byte_offset": 255,
+      "byte_length": 237,
+      "tags": [],
+      "summary": "- matches.csv \u2014 paired/grouped records\n- breaks.csv \u2014 unmatched records with reasoning\n- exclusions.csv \u2014 records removed before matching\n- Full reasoning JSON for each category\n- Auditable SQL trail of every operation",
+      "file": "identity.md"
+    },
+    {
+      "heading": "Soul",
+      "level": 1,
+      "byte_offset": 0,
+      "byte_length": 47,
+      "tags": [
+        "guardrails",
+        "write_paths"
+      ],
+      "summary": "",
+      "file": "soul.md"
+    },
+    {
+      "heading": "Guardrails",
+      "level": 2,
+      "byte_offset": 47,
+      "byte_length": 272,
+      "tags": [],
+      "summary": "- Never mutate input datasets\n- Never modify core_matching_rules.json or agent_matching_rules.json\n- Always produce auditable outputs\n- Never activate new rules without human approval\n- All matching must be deterministic: same input + same KB = same output",
+      "file": "soul.md"
+    },
+    {
+      "heading": "Write Paths",
+      "level": 2,
+      "byte_offset": 319,
+      "byte_length": 128,
+      "tags": [],
+      "summary": "- workspace/outputs/... (run artifacts)\n- workspace/knowledgebase/.../agent_rule_proposals/... (proposals only)",
+      "file": "soul.md"
+    },
+    {
+      "heading": "How to Work",
+      "level": 1,
+      "byte_offset": 0,
+      "byte_length": 57,
+      "tags": [
+        "waterfall",
+        "stop_conditions"
+      ],
+      "summary": "",
+      "file": "how_to_work.md"
+    },
+    {
+      "heading": "Waterfall",
+      "level": 2,
+      "byte_offset": 57,
+      "byte_length": 302,
+      "tags": [],
+      "summary": "1. Execute all exclusion rules first (exclude_by_predicates), in declared order\n2. Execute matching rules in declared order (one_to_one_ranked, many_to_many_balance_k, one_sided)\n3.",
+      "file": "how_to_work.md"
+    },
+    {
+      "heading": "Stop Conditions",
+      "level": 2,
+      "byte_offset": 359,
+      "byte_length": 173,
+      "tags": [],
+      "summary": "- Pool is empty\n- N consecutive steps with records_removed_from_pool == 0\n- Guardrail triggered (e.g., operator timeout)\n- All waterfall steps exhausted",
+      "file": "how_to_work.md"
+    }
+  ],
+  "operators": [
+    {
+      "rule_id": "EXCL_CUST_DERIV",
+      "status": "active",
+      "operator": "exclude_by_predicates",
+      "source": "core",
+      "params_keys": [
+        "side_a_filter",
+        "side_b_filter"
+      ],
+      "tags": []
+    },
+    {
+      "rule_id": "EXCL_COLLATERAL",
+      "status": "active",
+      "operator": "exclude_by_predicates",
+      "source": "core",
+      "params_keys": [
+        "side_a_filter",
+        "side_b_filter"
+      ],
+      "tags": []
+    },
+    {
+      "rule_id": "EXCL_FX_HEDGE",
+      "status": "active",
+      "operator": "exclude_by_predicates",
+      "source": "core",
+      "params_keys": [
+        "side_a_filter"
+      ],
+      "tags": []
+    },
+    {
+      "rule_id": "EXACT_MATCH_FUND",
+      "status": "active",
+      "operator": "one_to_one_ranked",
+      "source": "core",
+      "params_keys": [
+        "side_a_filter",
+        "side_b_filter",
+        "blocking_strategy",
+        "comparisons"
+      ],
+      "tags": []
+    },
+    {
+      "rule_id": "EXACT_MATCH_BLKCUSIP",
+      "status": "active",
+      "operator": "one_to_one_ranked",
+      "source": "core",
+      "params_keys": [
+        "blocking_strategy",
+        "comparisons"
+      ],
+      "tags": []
+    },
+    {
+      "rule_id": "SEC_ID_ISSUE_MULTI",
+      "status": "active",
+      "operator": "many_to_many_balance_k",
+      "source": "core",
+      "params_keys": [
+        "side_a_filter",
+        "side_b_filter",
+        "blocking_strategy",
+        "comparisons"
+      ],
+      "tags": []
+    },
+    {
+      "rule_id": "ZERO_POS",
+      "status": "active",
+      "operator": "one_sided",
+      "source": "core",
+      "params_keys": [
+        "blocking_strategy",
+        "comparisons"
+      ],
+      "tags": []
+    }
+  ],
+  "blocking_strategies": [
+    {
+      "name": "fund+blk_cusip",
+      "keys": [
+        "fund",
+        "blk_cusip"
+      ],
+      "required": [
+        "fund",
+        "blk_cusip"
+      ],
+      "fallback_order": 1
+    },
+    {
+      "name": "fund+sec_id",
+      "keys": [
+        "fund",
+        "sec_id"
+      ],
+      "required": [
+        "fund",
+        "sec_id"
+      ],
+      "fallback_order": 2
+    }
+  ],
+  "amount_policy": {
+    "tolerance": 0.005
+  }
+}

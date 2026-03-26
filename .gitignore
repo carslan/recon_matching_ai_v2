@@ -1,0 +1,23 @@
+# Logs & outputs
+public/logs/
+workspace/outputs/
+server.log
+
+# Runtime & binary
+*.duckdb
+*.duckdb.wal
+__pycache__/
+*.pyc
+node_modules/
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# Claude internal
+Session Notes/
+LastAction.md
+Memory.md
+ServerScripts.md
+CLAUDE.md

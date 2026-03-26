@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recon Matching Service</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #22252f; --border: #2a2d3a;
+    --text: #e1e4ed; --dim: #8b8fa3; --accent: #00d2ff;
+    --green: #00ff88; --red: #ff4d6a; --purple: #7b2ff7; --yellow: #ffd866;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 13px; }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+  header { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  header svg { width: 36px; height: 36px; }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header .sub { color: var(--dim); font-size: 11px; }
+  header .version { color: var(--dim); font-size: 11px; margin-left: auto; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 2px; margin-bottom: 20px; background: var(--surface); border-radius: 6px; padding: 3px; }
+  .tab { padding: 8px 16px; border-radius: 4px; cursor: pointer; color: var(--dim); font-size: 12px; transition: all 0.15s; }
+  .tab:hover { color: var(--text); }
+  .tab.active { background: var(--accent); color: var(--bg); font-weight: 600; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px; margin-bottom: 14px; }
+  .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); margin-bottom: 14px; }
+
+  /* Form */
+  .form-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-end; }
+  .form-row.full { flex-direction: column; align-items: stretch; }
+  .field { flex: 1; }
+  label { font-size: 11px; color: var(--dim); display: block; margin-bottom: 3px; }
+  input, select { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    padding: 7px 10px; color: var(--text); font-family: inherit; font-size: 12px; }
+  input:focus { outline: none; border-color: var(--accent); }
+
+  /* Buttons */
+  button { background: var(--accent); color: var(--bg); border: none; border-radius: 4px;
+    padding: 8px 16px; font-family: inherit; font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: opacity 0.15s; white-space: nowrap; }
+  button:hover { opacity: 0.85; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-green { background: var(--green); }
+  .btn-dim { background: var(--border); color: var(--text); }
+  .btn-sm { padding: 4px 10px; font-size: 11px; }
+
+  /* Status */
+  .status-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    background: var(--bg); border-radius: 4px; margin-top: 10px; font-size: 12px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .dot-ok { background: var(--green); }
+  .dot-err { background: var(--red); }
+  .dot-run { background: var(--accent); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; color: var(--dim); padding: 6px 8px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--border); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  tr:hover td { background: var(--surface2); }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 10px; font-weight: 600; }
+  .tag-ok { background: rgba(0,255,136,0.15); color: var(--green); }
+  .tag-fail { background: rgba(255,77,106,0.15); color: var(--red); }
+  .tag-info { background: rgba(0,210,255,0.15); color: var(--accent); }
+
+  /* File browser */
+  .file-list { display: flex; flex-direction: column; gap: 2px; }
+  .file-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 4px; cursor: pointer; transition: background 0.1s; }
+  .file-item:hover { background: var(--surface2); }
+  .file-icon { width: 16px; color: var(--dim); font-size: 14px; text-align: center; }
+  .file-name { flex: 1; }
+  .file-name .ext { color: var(--accent); }
+  .file-size { color: var(--dim); font-size: 11px; min-width: 60px; text-align: right; }
+
+  /* Viewer modal */
+  .viewer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; }
+  .viewer-overlay.open { display: flex; justify-content: center; align-items: center; }
+  .viewer { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    width: 90vw; max-width: 1100px; height: 85vh; display: flex; flex-direction: column; overflow: hidden; }
+  .viewer-header { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); gap: 10px; }
+  .viewer-header .fname { flex: 1; font-weight: 600; color: var(--accent); }
+  .viewer-header .fmeta { color: var(--dim); font-size: 11px; }
+  .viewer-header .close-btn { background: none; border: none; color: var(--dim); font-size: 20px; cursor: pointer; padding: 0 6px; }
+  .viewer-header .close-btn:hover { color: var(--red); }
+  .viewer-body { flex: 1; overflow: auto; padding: 0; }
+
+  /* JSON viewer */
+  .json-view { padding: 14px; white-space: pre-wrap; word-break: break-all; font-size: 12px; line-height: 1.5; }
+  .json-view .key { color: var(--accent); }
+  .json-view .str { color: var(--green); }
+  .json-view .num { color: var(--yellow); }
+  .json-view .bool { color: var(--purple); }
+  .json-view .null { color: var(--dim); }
+
+  /* Markdown */
+  .md-view { padding: 14px 20px; line-height: 1.6; }
+  .md-view h1, .md-view h2, .md-view h3 { color: var(--accent); margin: 16px 0 8px; }
+  .md-view code { background: var(--bg); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+  .md-view pre { background: var(--bg); padding: 12px; border-radius: 4px; overflow-x: auto; }
+  .md-view ul, .md-view ol { padding-left: 20px; }
+
+  /* SQL */
+  .sql-view { padding: 14px; white-space: pre-wrap; font-size: 12px; line-height: 1.5; color: var(--text); }
+  .sql-view .comment { color: var(--dim); }
+  .sql-view .keyword { color: var(--accent); font-weight: 600; }
+
+  /* CSV table wrapper */
+  .csv-wrap { overflow: auto; max-height: 100%; }
+  .csv-wrap table { font-size: 11px; }
+  .csv-wrap th { background: var(--surface2); font-size: 11px; }
+  .csv-wrap td { white-space: nowrap; max-width: 200px; }
+  .csv-pagination { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-top: 1px solid var(--border); }
+
+  /* Summary stats */
+  .stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .stat { background: var(--bg); border-radius: 6px; padding: 10px 14px; min-width: 120px; }
+  .stat .val { font-size: 22px; font-weight: 700; }
+  .stat .lbl { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat.excluded .val { color: var(--red); }
+  .stat.matched .val { color: var(--green); }
+  .stat.breaks .val { color: var(--yellow); }
+  .stat.total .val { color: var(--accent); }
+
+  /* Waterfall */
+  .waterfall { display: flex; flex-direction: column; gap: 4px; }
+  .wf-step { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--bg); border-radius: 4px; font-size: 12px; }
+  .wf-step .step-num { color: var(--dim); min-width: 20px; }
+  .wf-step .rule { flex: 1; color: var(--accent); }
+  .wf-step .op { color: var(--dim); min-width: 180px; }
+  .wf-step .removed { min-width: 80px; text-align: right; }
+  .wf-step .removed.positive { color: var(--green); }
+  .wf-step .bar { height: 4px; border-radius: 2px; background: var(--green); transition: width 0.3s; }
+
+  /* Interaction log */
+  .interaction-log { display: flex; flex-direction: column; gap: 2px; max-height: 70vh; overflow-y: auto; }
+  .ilog-entry { display: flex; gap: 8px; padding: 6px 10px; border-radius: 4px; font-size: 11px; line-height: 1.5; border-left: 3px solid var(--border); }
+  .ilog-entry:hover { background: var(--surface2); }
+  .ilog-entry .seq { color: var(--dim); min-width: 28px; text-align: right; }
+  .ilog-entry .time { color: var(--dim); min-width: 80px; font-size: 10px; }
+  .ilog-entry .actor { min-width: 90px; font-weight: 600; }
+  .ilog-entry .actor-orchestrator { color: var(--accent); }
+  .ilog-entry .actor-executor { color: var(--purple); }
+  .ilog-entry .actor-duckdb { color: var(--yellow); }
+  .ilog-entry .actor-boot { color: var(--green); }
+  .ilog-entry .actor-finalize { color: var(--dim); }
+  .ilog-entry .actor-guardrail { color: var(--red); }
+  .ilog-entry .action { flex: 1; }
+  .ilog-entry.level-decision { border-left-color: var(--accent); }
+  .ilog-entry.level-sql { border-left-color: var(--yellow); }
+  .ilog-entry.level-error { border-left-color: var(--red); background: rgba(255,77,106,0.05); }
+  .ilog-entry.level-warning { border-left-color: #ff9f43; }
+  .ilog-entry.level-data { border-left-color: var(--green); }
+  .ilog-detail { margin-top: 4px; padding: 6px 8px; background: var(--bg); border-radius: 3px; font-size: 11px; white-space: pre-wrap; max-height: 200px; overflow: auto; cursor: pointer; }
+  .ilog-detail.collapsed { max-height: 40px; overflow: hidden; }
+  .ilog-sql { color: var(--yellow); font-family: inherit; }
+  .filter-btn { padding: 3px 10px; border-radius: 12px; border: 1px solid var(--border); background: none; color: var(--dim); font-size: 10px; cursor: pointer; font-family: inherit; }
+  .filter-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,210,255,0.1); }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72"><rect width="72" height="72" rx="12" fill="#1a1a2e"/>
+      <g transform="translate(36,36)"><rect x="-24" y="-16" width="18" height="6" rx="2" fill="#00d2ff" opacity="0.9"/>
+      <rect x="-24" y="-7" width="18" height="6" rx="2" fill="#00d2ff" opacity="0.7"/>
+      <rect x="6" y="-16" width="18" height="6" rx="2" fill="#7b2ff7" opacity="0.9"/>
+      <rect x="6" y="-7" width="18" height="6" rx="2" fill="#7b2ff7" opacity="0.7"/>
+      <line x1="-6" y1="-13" x2="6" y2="-13" stroke="#00ff88" stroke-width="1.5"/>
+      <line x1="-6" y1="-4" x2="6" y2="-4" stroke="#00ff88" stroke-width="1.5"/>
+      <path d="M-3 22 L0 25 L5 19" stroke="#00ff88" stroke-width="2" fill="none"/></g></svg>
+    <div><h1>Recon Matching</h1><div class="sub">LLM-Driven Reconciliation</div></div>
+    <span class="version">v0.2.0</span>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('run')">Run</div>
+    <div class="tab" onclick="switchTab('kb')">Knowledge Base</div>
+    <div class="tab" onclick="switchTab('results')">Results</div>
+    <div class="tab" onclick="switchTab('logs')">Agent Logs</div>
+  </div>
+
+  <!-- ═══ TAB: RUN ═══ -->
+  <div id="tab-run" class="tab-content active">
+    <div class="card">
+      <h2>Execute Matching Run</h2>
+      <div class="form-row">
+        <div class="field"><label>Workspace</label><input id="workspace" value="asset" /></div>
+        <div class="field"><label>Ruleset</label><input id="ruleset" value="account" /></div>
+      </div>
+      <div class="form-row full">
+        <label>Dataset Path</label>
+        <input id="dataset_path" value="" placeholder="Auto-detected from workspace" />
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Run ID (blank = auto)</label><input id="run_id" placeholder="auto" /></div>
+        <button class="btn-green" id="executeBtn" onclick="executeRun()">Execute Full Run</button>
+      </div>
+      <div id="submitStatus" class="status-bar" style="display:none"><span class="dot"></span><span></span></div>
+    </div>
+
+    <!-- Run result detail -->
+    <div id="runResult" style="display:none">
+      <div class="stats" id="runStats"></div>
+      <div class="card">
+        <h2>Waterfall Steps</h2>
+        <div class="waterfall" id="waterfallSteps"></div>
+      </div>
+      <div style="margin-top:10px">
+        <button class="btn-dim btn-sm" onclick="viewRunInteractionLog()">View Agent Interaction Log</button>
+        <button class="btn-dim btn-sm" onclick="viewRunFiles()">Browse All Output Files</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: KNOWLEDGE BASE ═══ -->
+  <div id="tab-kb" class="tab-content">
+    <div class="card">
+      <h2>Browse Knowledge Base</h2>
+      <div class="form-row">
+        <div class="field"><label>Workspace</label><input id="kb_ws" value="asset"/></div>
+        <div class="field"><label>Ruleset</label><input id="kb_rs" value="account"/></div>
+        <button class="btn-dim" onclick="loadKBFiles()">Load</button>
+      </div>
+    </div>
+    <div class="card" id="kbFilesCard" style="display:none">
+      <h2>KB Files</h2>
+      <div class="file-list" id="kbFileList"></div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: RESULTS ═══ -->
+  <div id="tab-results" class="tab-content">
+    <div class="card">
+      <h2>Run Outputs</h2>
+      <div class="form-row">
+        <div class="field"><label>Workspace</label><input id="out_ws" value="asset"/></div>
+        <div class="field"><label>Ruleset</label><input id="out_rs" value="account"/></div>
+        <button class="btn-dim" onclick="loadOutputRuns()">Load Runs</button>
+      </div>
+    </div>
+    <div class="card" id="outputRunsCard" style="display:none">
+      <h2>Available Runs</h2>
+      <div id="outputRunsList"></div>
+    </div>
+    <div class="card" id="runFilesCard" style="display:none">
+      <h2 id="runFilesTitle">Run Files</h2>
+      <div class="file-list" id="runFileList"></div>
+    </div>
+  </div>
+</div>
+
+  <!-- ═══ TAB: AGENT LOGS ═══ -->
+  <div id="tab-logs" class="tab-content">
+    <div class="card">
+      <h2>Agent Interaction Logs</h2>
+      <div class="form-row">
+        <div class="field"><label>Workspace</label><input id="log_ws" value="asset"/></div>
+        <div class="field"><label>Ruleset</label><input id="log_rs" value="account"/></div>
+        <button class="btn-dim" onclick="loadLogRuns()">Load Runs</button>
+      </div>
+    </div>
+    <div class="card" id="logRunsCard" style="display:none">
+      <h2>Select Run</h2>
+      <div id="logRunsList"></div>
+    </div>
+    <div id="interactionLogView" style="display:none">
+      <div class="card">
+        <h2 id="ilogTitle">Interaction Log</h2>
+        <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap" id="ilogFilters"></div>
+        <div id="ilogEntries" class="interaction-log"></div>
+      </div>
+    </div>
+  </div>
+
+<!-- ═══ FILE VIEWER MODAL ═══ -->
+<div class="viewer-overlay" id="viewerOverlay" onclick="if(event.target===this)closeViewer()">
+  <div class="viewer">
+    <div class="viewer-header">
+      <span class="fname" id="viewerFname"></span>
+      <span class="fmeta" id="viewerMeta"></span>
+      <button class="close-btn" onclick="closeViewer()">&times;</button>
+    </div>
+    <div class="viewer-body" id="viewerBody"></div>
+    <div class="csv-pagination" id="csvPagination" style="display:none">
+      <button class="btn-sm btn-dim" onclick="csvPage(-1)">Prev</button>
+      <span id="csvPageInfo"></span>
+      <button class="btn-sm btn-dim" onclick="csvPage(1)">Next</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '';
+let _csvState = {};
+
+// ─── TABS ────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab-content#tab-${name}`).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'kb') loadKBFiles();
+  if (name === 'results') loadOutputRuns();
+}
+
+// ─── RUN EXECUTION ───────────────────────────────────────────────────
+function genRunId() {
+  return new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14) + '_' + Math.random().toString(16).slice(2,10);
+}
+
+async function executeRun() {
+  const btn = document.getElementById('executeBtn');
+  const status = document.getElementById('submitStatus');
+  btn.disabled = true;
+  status.style.display = 'flex';
+  status.querySelector('.dot').className = 'dot dot-run';
+  status.querySelector('span:last-child').textContent = 'Executing waterfall...';
+
+  const ws = document.getElementById('workspace').value;
+  const rs = document.getElementById('ruleset').value;
+  const payload = {
+    workspace: ws, ruleset: rs,
+    dataset_absolute_path: document.getElementById('dataset_path').value ||
+      `/home/che/LocalAppStore/Apps/recon-matching/workspace/asset/account/datasets/active_experiment/dataset.csv`,
+    run_id: document.getElementById('run_id').value || genRunId(),
+  };
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+    const res = await fetch(`${API}/api/recon-match/execute`, {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const data = await res.json();
+
+    if (data.status === 'COMPLETED') {
+      status.querySelector('.dot').className = 'dot dot-ok';
+      const s = data.summary;
+      status.querySelector('span:last-child').textContent =
+        `${s.total_matched} matched, ${s.total_excluded} excluded, ${s.total_breaks} breaks (${s.total_steps_executed} steps)`;
+      showRunResult(data);
+    } else {
+      status.querySelector('.dot').className = 'dot dot-err';
+      status.querySelector('span:last-child').textContent = data.error || 'Failed';
+    }
+  } catch(e) {
+    status.querySelector('.dot').className = 'dot dot-err';
+    status.querySelector('span:last-child').textContent = e.message;
+  }
+  btn.disabled = false;
+}
+
+function showRunResult(data) {
+  const el = document.getElementById('runResult');
+  el.style.display = 'block';
+  const s = data.summary;
+  const total = s.total_input_records;
+
+  document.getElementById('runStats').innerHTML = `
+    <div class="stat total"><div class="val">${total}</div><div class="lbl">Input Records</div></div>
+    <div class="stat excluded"><div class="val">${s.total_excluded}</div><div class="lbl">Excluded</div></div>
+    <div class="stat matched"><div class="val">${s.total_matched}</div><div class="lbl">Matched</div></div>
+    <div class="stat breaks"><div class="val">${s.total_breaks}</div><div class="lbl">Breaks</div></div>
+  `;
+
+  // Load waterfall from run manifest
+  const runDir = data.run_dir;
+  const parts = runDir.split('/outputs/')[1]; // date/ws/rs/run_id
+  if (parts) {
+    const [dt,ws2,rs2,rid] = parts.split('/');
+    fetch(`${API}/api/outputs/${dt}/${ws2}/${rs2}/${rid}/file/run_manifest.json`).then(r=>r.json()).then(d => {
+      if (d.content && d.content.waterfall) {
+        const maxRemoved = Math.max(1, ...d.content.waterfall.map(s => s.records_removed_from_pool));
+        document.getElementById('waterfallSteps').innerHTML = d.content.waterfall.map(s => `
+          <div class="wf-step">
+            <span class="step-num">#${s.step_id}</span>
+            <span class="rule">${s.rule_id}</span>
+            <span class="op">${s.operator}</span>
+            <span class="removed ${s.records_removed_from_pool > 0 ? 'positive' : ''}">${s.records_removed_from_pool} removed</span>
+            <div style="width:80px"><div class="bar" style="width:${(s.records_removed_from_pool/maxRemoved)*100}%"></div></div>
+          </div>
+        `).join('');
+      }
+    });
+
+    // Store for quick access to results
+    window._lastRunPath = {dt,ws:ws2,rs:rs2,rid};
+  }
+}
+
+// ─── KB FILE BROWSER ─────────────────────────────────────────────────
+async function loadKBFiles() {
+  const ws = document.getElementById('kb_ws').value;
+  const rs = document.getElementById('kb_rs').value;
+  const card = document.getElementById('kbFilesCard');
+
+  try {
+    const res = await fetch(`${API}/api/kb/${ws}/${rs}/files`);
+    const data = await res.json();
+    card.style.display = 'block';
+
+    document.getElementById('kbFileList').innerHTML = data.files.map(f => `
+      <div class="file-item" onclick="openKBFile('${ws}','${rs}','${f.name}')">
+        <span class="file-icon">${fileIcon(f.type)}</span>
+        <span class="file-name">${highlightExt(f.name)}</span>
+        <span class="file-size">${fmtSize(f.size)}</span>
+      </div>
+    `).join('');
+  } catch(e) { card.style.display = 'none'; }
+}
+
+async function openKBFile(ws, rs, filename) {
+  const res = await fetch(`${API}/api/kb/${ws}/${rs}/file/${filename}`);
+  const data = await res.json();
+  openViewer(data);
+}
+
+// ─── OUTPUT BROWSER ──────────────────────────────────────────────────
+async function loadOutputRuns() {
+  const ws = document.getElementById('out_ws').value;
+  const rs = document.getElementById('out_rs').value;
+
+  const datesRes = await fetch(`${API}/api/outputs`);
+  const datesData = await datesRes.json();
+
+  const card = document.getElementById('outputRunsCard');
+  card.style.display = 'block';
+  let html = '';
+
+  for (const dt of datesData.dates) {
+    const runsRes = await fetch(`${API}/api/outputs/${dt}/${ws}/${rs}`);
+    const runsData = await runsRes.json();
+    if (!runsData.runs.length) continue;
+
+    html += `<div style="margin-bottom:10px"><span style="color:var(--dim)">${dt}</span></div>`;
+    for (const r of runsData.runs) {
+      const s = r.summary;
+      const badge = s.total_matched !== undefined
+        ? `<span class="tag tag-ok">${s.total_matched} matched</span> <span class="tag tag-info">${s.total_breaks} breaks</span>`
+        : '<span class="tag tag-info">no summary</span>';
+      html += `<div class="file-item" onclick="loadRunFiles('${dt}','${ws}','${rs}','${r.run_id}')">
+        <span class="file-icon">&#128193;</span>
+        <span class="file-name">${r.run_id}</span>
+        ${badge}
+      </div>`;
+    }
+  }
+  document.getElementById('outputRunsList').innerHTML = html || '<span style="color:var(--dim)">No runs found</span>';
+}
+
+async function loadRunFiles(dt, ws, rs, rid) {
+  const card = document.getElementById('runFilesCard');
+  card.style.display = 'block';
+  document.getElementById('runFilesTitle').textContent = `Files: ${rid}`;
+
+  const res = await fetch(`${API}/api/outputs/${dt}/${ws}/${rs}/${rid}/files`);
+  const data = await res.json();
+
+  window._currentRun = {dt,ws,rs,rid};
+
+  document.getElementById('runFileList').innerHTML = data.files.map(f => `
+    <div class="file-item" onclick="openRunFile('${f.name}')">
+      <span class="file-icon">${fileIcon(f.type)}</span>
+      <span class="file-name">${highlightExt(f.name)}</span>
+      <span class="file-size">${fmtSize(f.size)}</span>
+    </div>
+  `).join('');
+}
+
+async function openRunFile(filename, offset=0) {
+  const r = window._currentRun;
+  const res = await fetch(`${API}/api/outputs/${r.dt}/${r.ws}/${r.rs}/${r.rid}/file/${filename}?offset=${offset}&limit=200`);
+  const data = await res.json();
+  data._runCtx = r;
+  openViewer(data, offset);
+}
+
+// ─── VIEWER ──────────────────────────────────────────────────────────
+function openViewer(data, csvOffset=0) {
+  document.getElementById('viewerOverlay').classList.add('open');
+  document.getElementById('viewerFname').textContent = data.filename;
+  document.getElementById('viewerMeta').textContent = fmtSize(data.size);
+  const body = document.getElementById('viewerBody');
+  const pagination = document.getElementById('csvPagination');
+  pagination.style.display = 'none';
+
+  if (data.type === 'json') {
+    body.innerHTML = `<div class="json-view">${syntaxHighlightJSON(JSON.stringify(data.content, null, 2))}</div>`;
+  } else if (data.type === 'csv') {
+    _csvState = { filename: data.filename, offset: csvOffset, limit: data.limit || 200, total: data.total_rows, ctx: data._runCtx };
+    body.innerHTML = renderCSVTable(data.headers, data.rows);
+    pagination.style.display = 'flex';
+    document.getElementById('csvPageInfo').textContent =
+      `Rows ${data.offset+1}-${data.offset+data.rows.length} of ${data.total_rows}`;
+  } else if (data.type === 'md') {
+    body.innerHTML = `<div class="md-view">${renderMarkdown(data.content)}</div>`;
+  } else if (data.type === 'sql') {
+    body.innerHTML = `<div class="sql-view">${highlightSQL(escHtml(data.content))}</div>`;
+  } else if (data.type === 'binary') {
+    body.innerHTML = `<div style="padding:20px;color:var(--dim)">${data.content}</div>`;
+  } else {
+    body.innerHTML = `<pre style="padding:14px;white-space:pre-wrap">${escHtml(data.content)}</pre>`;
+  }
+}
+
+function closeViewer() {
+  document.getElementById('viewerOverlay').classList.remove('open');
+}
+
+function csvPage(dir) {
+  const s = _csvState;
+  const newOffset = Math.max(0, Math.min(s.total - 1, s.offset + dir * s.limit));
+  if (newOffset === s.offset) return;
+  openRunFile(s.filename, newOffset);
+}
+
+// ─── RENDERERS ───────────────────────────────────────────────────────
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function syntaxHighlightJSON(json) {
+  return escHtml(json).replace(
+    /("(?:\\.|[^"\\])*")\s*:/g, '<span class="key">$1</span>:'
+  ).replace(
+    /:\s*("(?:\\.|[^"\\])*")/g, ': <span class="str">$1</span>'
+  ).replace(
+    /:\s*(\d+\.?\d*)/g, ': <span class="num">$1</span>'
+  ).replace(
+    /:\s*(true|false)/g, ': <span class="bool">$1</span>'
+  ).replace(
+    /:\s*(null)/g, ': <span class="null">$1</span>'
+  );
+}
+
+function renderCSVTable(headers, rows) {
+  if (!headers || !rows.length) return '<div style="padding:14px;color:var(--dim)">Empty</div>';
+  return `<div class="csv-wrap"><table>
+    <thead><tr>${headers.map(h=>`<th>${escHtml(h)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r=>`<tr>${headers.map(h=>`<td title="${escHtml(r[h]||'')}">${escHtml(r[h]||'')}</td>`).join('')}</tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+function renderMarkdown(md) {
+  return md
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+    .replace(/\n{2,}/g, '<br><br>')
+    .replace(/\n/g, '<br>');
+}
+
+function highlightSQL(sql) {
+  const kw = ['SELECT','FROM','WHERE','JOIN','ON','AND','OR','NOT','IN','AS','INSERT','INTO','VALUES',
+    'CREATE','TABLE','VIEW','IF','EXISTS','REPLACE','WITH','GROUP','BY','HAVING','ORDER','PARTITION',
+    'OVER','UNION','ALL','DISTINCT','CASE','WHEN','THEN','ELSE','END','CAST','COALESCE','COUNT','SUM',
+    'ABS','ROW_NUMBER','COPY','TO','HEADER','DELIMITER','LEFT','RIGHT','INNER','LIKE','IS','NULL','SET',
+    'UPDATE','DELETE','DROP','ALTER','BETWEEN','LIMIT','OFFSET','ASC','DESC','TRUE','FALSE'];
+  let out = sql.replace(/^(--.*?)$/gm, '<span class="comment">$1</span>');
+  for (const k of kw) {
+    out = out.replace(new RegExp(`\\b(${k})\\b`, 'gi'), '<span class="keyword">$1</span>');
+  }
+  return out;
+}
+
+function fileIcon(type) {
+  const map = {json:'{}', csv:'&#9783;', md:'&#9998;', sql:'&#9107;', duckdb:'&#128023;', dir:'&#128193;'};
+  return map[type] || '&#128196;';
+}
+
+function highlightExt(name) {
+  const dot = name.lastIndexOf('.');
+  if (dot < 0) return name;
+  return `${name.slice(0,dot)}<span class="ext">${name.slice(dot)}</span>`;
+}
+
+function fmtSize(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1024/1024).toFixed(1) + ' MB';
+}
+
+// ─── AGENT INTERACTION LOG ────────────────────────────────────────
+let _ilogData = null;
+let _ilogFilters = new Set(['all']);
+
+async function loadLogRuns() {
+  const ws = document.getElementById('log_ws').value;
+  const rs = document.getElementById('log_rs').value;
+  const datesRes = await fetch(`${API}/api/outputs`);
+  const datesData = await datesRes.json();
+
+  const card = document.getElementById('logRunsCard');
+  card.style.display = 'block';
+  let html = '';
+
+  for (const dt of datesData.dates) {
+    const runsRes = await fetch(`${API}/api/outputs/${dt}/${ws}/${rs}`);
+    const runsData = await runsRes.json();
+    if (!runsData.runs.length) continue;
+
+    for (const r of runsData.runs) {
+      html += `<div class="file-item" onclick="loadInteractionLog('${dt}','${ws}','${rs}','${r.run_id}')">
+        <span class="file-icon">&#128270;</span>
+        <span class="file-name">${r.run_id}</span>
+      </div>`;
+    }
+  }
+  document.getElementById('logRunsList').innerHTML = html || '<span style="color:var(--dim)">No runs found</span>';
+}
+
+async function loadInteractionLog(dt, ws, rs, rid) {
+  try {
+    const res = await fetch(`${API}/api/outputs/${dt}/${ws}/${rs}/${rid}/file/interaction_log.json`);
+    const data = await res.json();
+    if (data.type === 'json' && data.content) {
+      _ilogData = data.content;
+      renderInteractionLog(data.content, rid);
+    } else {
+      alert('No interaction log found for this run (pre-logging run?)');
+    }
+  } catch(e) {
+    alert('Failed to load interaction log: ' + e.message);
+  }
+}
+
+function renderInteractionLog(logData, rid) {
+  document.getElementById('interactionLogView').style.display = 'block';
+  document.getElementById('ilogTitle').textContent = `Interaction Log: ${rid} (${logData.total_events} events)`;
+
+  // Build filter buttons
+  const actors = [...new Set(logData.events.map(e => e.actor))];
+  const levels = [...new Set(logData.events.map(e => e.level))];
+  _ilogFilters = new Set(['all']);
+
+  let filterHtml = `<button class="filter-btn active" onclick="toggleILogFilter('all')">All (${logData.events.length})</button>`;
+  for (const a of actors) {
+    const count = logData.events.filter(e => e.actor === a).length;
+    filterHtml += `<button class="filter-btn" onclick="toggleILogFilter('actor:${a}')">${a} (${count})</button>`;
+  }
+  for (const l of levels) {
+    const count = logData.events.filter(e => e.level === l).length;
+    filterHtml += `<button class="filter-btn" onclick="toggleILogFilter('level:${l}')">${l} (${count})</button>`;
+  }
+  document.getElementById('ilogFilters').innerHTML = filterHtml;
+
+  renderILogEntries(logData.events);
+}
+
+function toggleILogFilter(filter) {
+  if (filter === 'all') {
+    _ilogFilters = new Set(['all']);
+  } else {
+    _ilogFilters.delete('all');
+    if (_ilogFilters.has(filter)) _ilogFilters.delete(filter);
+    else _ilogFilters.add(filter);
+    if (_ilogFilters.size === 0) _ilogFilters.add('all');
+  }
+
+  // Update button states
+  document.querySelectorAll('#ilogFilters .filter-btn').forEach(btn => {
+    const f = btn.onclick.toString().match(/toggleILogFilter\('(.+?)'\)/)?.[1];
+    btn.classList.toggle('active', _ilogFilters.has(f) || _ilogFilters.has('all'));
+  });
+
+  const filtered = _ilogData.events.filter(e => {
+    if (_ilogFilters.has('all')) return true;
+    return _ilogFilters.has('actor:' + e.actor) || _ilogFilters.has('level:' + e.level);
+  });
+  renderILogEntries(filtered);
+}
+
+function renderILogEntries(events) {
+  const el = document.getElementById('ilogEntries');
+  el.innerHTML = events.map(e => {
+    const time = e.timestamp.split('T')[1]?.slice(0,12) || '';
+    let detailHtml = '';
+    if (e.detail) {
+      if (e.level === 'sql' && e.detail.sql) {
+        detailHtml = `<div class="ilog-detail collapsed ilog-sql" onclick="this.classList.toggle('collapsed')">${highlightSQL(escHtml(e.detail.sql))}</div>`;
+      } else {
+        const str = typeof e.detail === 'string' ? e.detail : JSON.stringify(e.detail, null, 2);
+        detailHtml = `<div class="ilog-detail collapsed" onclick="this.classList.toggle('collapsed')">${syntaxHighlightJSON(escHtml(str))}</div>`;
+      }
+    }
+    return `<div class="ilog-entry level-${e.level}">
+      <span class="seq">${e.seq}</span>
+      <span class="time">${time}</span>
+      <span class="actor actor-${e.actor}">${e.actor}</span>
+      <span class="action">${escHtml(e.action)}${detailHtml}</span>
+    </div>`;
+  }).join('');
+}
+
+function viewRunInteractionLog() {
+  if (!window._lastRunPath) return;
+  const {dt,ws,rs,rid} = window._lastRunPath;
+  switchTab('logs');
+  document.querySelector('.tab:nth-child(4)').classList.add('active');
+  loadInteractionLog(dt, ws, rs, rid);
+}
+
+function viewRunFiles() {
+  if (!window._lastRunPath) return;
+  const {dt,ws,rs,rid} = window._lastRunPath;
+  switchTab('results');
+  document.querySelector('.tab:nth-child(3)').classList.add('active');
+  loadRunFiles(dt, ws, rs, rid);
+}
+
+// Keyboard
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
+</script>
+</body>
+</html>

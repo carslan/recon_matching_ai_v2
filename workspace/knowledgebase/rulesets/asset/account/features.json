@@ -1,0 +1,31 @@
+{
+  "blocking_strategies": [
+    {
+      "name": "fund+blk_cusip",
+      "keys": [
+        "fund",
+        "blk_cusip"
+      ],
+      "required": [
+        "fund",
+        "blk_cusip"
+      ],
+      "fallback_order": 1
+    },
+    {
+      "name": "fund+sec_id",
+      "keys": [
+        "fund",
+        "sec_id"
+      ],
+      "required": [
+        "fund",
+        "sec_id"
+      ],
+      "fallback_order": 2
+    }
+  ],
+  "amount_policy": {
+    "tolerance": 0.005
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "ruleset": "account",
+  "dataset_type": "account",
+  "schema": {
+    "columns": [
+      {"name": "side", "type": "VALUE_TYPE_STRING"},
+      {"name": "fund", "type": "VALUE_TYPE_LONG"},
+      {"name": "source", "type": "VALUE_TYPE_STRING"},
+      {"name": "type", "type": "VALUE_TYPE_STRING"},
+      {"name": "nav", "type": "VALUE_TYPE_STRING"},
+      {"name": "broker_code", "type": "VALUE_TYPE_STRING"},
+      {"name": "statement_id", "type": "VALUE_TYPE_LONG"},
+      {"name": "record_id", "type": "VALUE_TYPE_LONG"},
+      {"name": "blk_cusip", "type": "VALUE_TYPE_STRING"},
+      {"name": "sec_id_type", "type": "VALUE_TYPE_STRING"},
+      {"name": "sec_id", "type": "VALUE_TYPE_STRING"},
+      {"name": "sec_desc", "type": "VALUE_TYPE_STRING"},
+      {"name": "orig_face", "type": "VALUE_TYPE_DOUBLE"},
+      {"name": "cur_par", "type": "VALUE_TYPE_DOUBLE"},
+      {"name": "fee_amt", "type": "VALUE_TYPE_DOUBLE"},
+      {"name": "collateral", "type": "VALUE_TYPE_DOUBLE"},
+      {"name": "restricted", "type": "VALUE_TYPE_DOUBLE"},
+      {"name": "ind_amt", "type": "VALUE_TYPE_DOUBLE"},
+      {"name": "recv_amount", "type": "VALUE_TYPE_DOUBLE"},
+      {"name": "deliv_amount", "type": "VALUE_TYPE_DOUBLE"},
+      {"name": "avail_amt", "type": "VALUE_TYPE_DOUBLE"},
+      {"name": "deal_amount", "type": "VALUE_TYPE_DOUBLE"},
+      {"name": "foreign_amount", "type": "VALUE_TYPE_DOUBLE"},
+      {"name": "sec_type", "type": "VALUE_TYPE_STRING"},
+      {"name": "sec_group", "type": "VALUE_TYPE_STRING"},
+      {"name": "ext_asset_info", "type": "VALUE_TYPE_STRING"},
+      {"name": "ref_entity", "type": "VALUE_TYPE_STRING"},
+      {"name": "maturity", "type": "VALUE_TYPE_DATE"},
+      {"name": "price_date", "type": "VALUE_TYPE_DATE"}
+    ],
+    "computed_columns": [
+      {"name": "ext_asset_info_null_safe", "type": "VALUE_TYPE_STRING", "expression": "nullSafeString(ext_asset_info)"},
+      {"name": "sec_type_null_safe", "type": "VALUE_TYPE_STRING", "expression": "nullSafeString(sec_type)"},
+      {"name": "orig_face_plus_fee_amt_factor_plus_1", "type": "VALUE_TYPE_DOUBLE", "expression": "nullSafePolynomial(orig_face,fee_amt,1)"},
+      {"name": "orig_face_minus_collateral_factor_minus_1", "type": "VALUE_TYPE_DOUBLE", "expression": "nullSafePolynomial(orig_face,collateral,-1)"},
+      {"name": "fail_face_coll", "type": "VALUE_TYPE_DOUBLE", "expression": "orig_face + collateral - fee_amt"},
+      {"name": "orig_face_abs", "type": "VALUE_TYPE_DOUBLE", "expression": "nullSafeDoubleAbs(orig_face)"}
+    ]
+  },
+  "rules": [
+    {
+      "rule_name": "Cust Deriv Exclusion",
+      "rule_id": "EXCL_CUST_DERIV",
+      "type": "exclusion",
+      "conditions": {
+        "side_a": "(ext_asset_info IN ('FUT', 'OPT', 'BKL', 'BFW', 'FRA', 'RP', 'RVRP', 'TRP', 'RTRP') AND sec_type NOT IN ('MUNI', 'GOVT', 'CD', 'AGENCY', 'CORP'))",
+        "side_b": "(ext_asset_info IN ('FUT', 'OPT', 'BKL', 'BFW', 'FRA', 'RP', 'RVRP', 'TRP', 'RTRP') AND sec_type NOT IN ('MUNI', 'GOVT', 'CD', 'AGENCY', 'CORP'))"
+      }
+    },
+    {
+      "rule_name": "Collateral Exclusion",
+      "rule_id": "EXCL_COLLATERAL",
+      "type": "exclusion",
+      "conditions": {
+        "side_a": "(sec_group == 'CASH' AND sec_type == 'COLLATERAL')",
+        "side_b": "(sec_group == 'CASH' AND sec_type == 'COLLATERAL')"
+      }
+    },
+    {
+      "rule_name": "FX Hedge Exclusion",
+      "rule_id": "EXCL_FX_HEDGE",
+      "type": "exclusion",
+      "conditions": {
+        "side_a": "(sec_group == 'FX' AND type == 'HEDGE')"
+      }
+    },
+    {
+      "rule_name": "Exact Match Fund",
+      "rule_id": "EXACT_MATCH_FUND",
+      "type": "one_to_one",
+      "conditions": {
+        "side_a": "(sec_group == 'FUND')",
+        "side_b": "(sec_group == 'FUND')"
+      },
+      "blocking": {"keys_a": ["blk_cusip"], "keys_b": ["blk_cusip"]},
+      "comparisons": [
+        {"column_a": "orig_face", "column_b": "orig_face", "tolerance": 0.01, "tolerance_type": "abs", "tolerance_behavior": "exclusive", "required": true}
+      ]
+    },
+    {
+      "rule_name": "Exact Match BlkCusip",
+      "rule_id": "EXACT_MATCH_BLKCUSIP",
+      "type": "one_to_one",
+      "conditions": {},
+      "blocking": {"keys_a": ["blk_cusip"], "keys_b": ["blk_cusip"]},
+      "comparisons": [
+        {"column_a": "orig_face", "column_b": "orig_face", "tolerance": 0.005, "tolerance_type": "abs", "tolerance_behavior": "inclusive", "required": true}
+      ]
+    },
+    {
+      "rule_name": "Sec ID Issue Multiple Safekeeping",
+      "rule_id": "SEC_ID_ISSUE_MULTI",
+      "type": "many_to_many",
+      "conditions": {
+        "side_a": "(((source IN ('S', 'B')) AND (ref_entity == 'Multiple')) OR (source == 'P'))",
+        "side_b": "(((source IN ('S', 'B')) AND (ref_entity == 'Multiple')) OR (source == 'P'))"
+      },
+      "blocking": {"keys_a": ["blk_cusip"], "keys_b": ["blk_cusip"]},
+      "comparisons": [
+        {"column_a": "orig_face", "column_b": "orig_face", "tolerance": 0.001, "tolerance_type": "abs", "tolerance_behavior": "exclusive", "aggregation": "SumIgnoreNulls", "required": true}
+      ]
+    },
+    {
+      "rule_name": "Zero Position Netting",
+      "rule_id": "ZERO_POS",
+      "type": "one_sided",
+      "conditions": {},
+      "blocking": {"keys": ["blk_cusip"]},
+      "comparisons": [
+        {"column": "orig_face", "tolerance": 0, "tolerance_type": "abs", "aggregation": "SumIgnoreNulls", "required": true}
+      ]
+    }
+  ],
+  "features": {
+    "blocking_strategies": [
+      {"name": "fund+blk_cusip", "keys": ["fund", "blk_cusip"], "required": ["fund", "blk_cusip"], "fallback_order": 1},
+      {"name": "fund+sec_id", "keys": ["fund", "sec_id"], "required": ["fund", "sec_id"], "fallback_order": 2}
+    ],
+    "amount_policy": {
+      "tolerance": 0.005
+    }
+  }
+}

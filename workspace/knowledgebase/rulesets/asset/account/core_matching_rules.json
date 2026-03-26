@@ -1,0 +1,132 @@
+{
+  "ruleset": "account",
+  "rules": [
+    {
+      "rule_id": "EXCL_CUST_DERIV",
+      "status": "active",
+      "operator": "exclude_by_predicates",
+      "params": {
+        "side_a_filter": "(ext_asset_info_null_safe IN ('FUT', 'OPT', 'BKL', 'BFW', 'FRA', 'RP', 'RVRP', 'TRP', 'RTRP') AND sec_type_null_safe NOT IN ('MUNI', 'GOVT', 'CD', 'AGENCY', 'CORP'))",
+        "side_b_filter": "(ext_asset_info_null_safe IN ('FUT', 'OPT', 'BKL', 'BFW', 'FRA', 'RP', 'RVRP', 'TRP', 'RTRP') AND sec_type_null_safe NOT IN ('MUNI', 'GOVT', 'CD', 'AGENCY', 'CORP'))"
+      }
+    },
+    {
+      "rule_id": "EXCL_COLLATERAL",
+      "status": "active",
+      "operator": "exclude_by_predicates",
+      "params": {
+        "side_a_filter": "(sec_group == 'CASH' AND sec_type_null_safe == 'COLLATERAL')",
+        "side_b_filter": "(sec_group == 'CASH' AND sec_type_null_safe == 'COLLATERAL')"
+      }
+    },
+    {
+      "rule_id": "EXCL_FX_HEDGE",
+      "status": "active",
+      "operator": "exclude_by_predicates",
+      "params": {
+        "side_a_filter": "(sec_group == 'FX' AND type == 'HEDGE')"
+      }
+    },
+    {
+      "rule_id": "EXACT_MATCH_FUND",
+      "status": "active",
+      "operator": "one_to_one_ranked",
+      "params": {
+        "side_a_filter": "(sec_group == 'FUND')",
+        "side_b_filter": "(sec_group == 'FUND')",
+        "blocking_strategy": {
+          "keys_a": [
+            "blk_cusip"
+          ],
+          "keys_b": [
+            "blk_cusip"
+          ]
+        },
+        "comparisons": [
+          {
+            "column_a": "orig_face",
+            "column_b": "orig_face",
+            "tolerance": 0.01,
+            "tolerance_type": "abs",
+            "tolerance_behavior": "exclusive",
+            "required": true
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "EXACT_MATCH_BLKCUSIP",
+      "status": "active",
+      "operator": "one_to_one_ranked",
+      "params": {
+        "blocking_strategy": {
+          "keys_a": [
+            "blk_cusip"
+          ],
+          "keys_b": [
+            "blk_cusip"
+          ]
+        },
+        "comparisons": [
+          {
+            "column_a": "orig_face",
+            "column_b": "orig_face",
+            "tolerance": 0.005,
+            "tolerance_type": "abs",
+            "tolerance_behavior": "inclusive",
+            "required": true
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "SEC_ID_ISSUE_MULTI",
+      "status": "active",
+      "operator": "many_to_many_balance_k",
+      "params": {
+        "side_a_filter": "(((source IN ('S', 'B')) AND (ref_entity == 'Multiple')) OR (source == 'P'))",
+        "side_b_filter": "(((source IN ('S', 'B')) AND (ref_entity == 'Multiple')) OR (source == 'P'))",
+        "blocking_strategy": {
+          "keys_a": [
+            "blk_cusip"
+          ],
+          "keys_b": [
+            "blk_cusip"
+          ]
+        },
+        "comparisons": [
+          {
+            "column_a": "orig_face",
+            "column_b": "orig_face",
+            "tolerance": 0.001,
+            "tolerance_type": "abs",
+            "tolerance_behavior": "exclusive",
+            "required": true,
+            "aggregation": "SumIgnoreNulls"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "ZERO_POS",
+      "status": "active",
+      "operator": "one_sided",
+      "params": {
+        "blocking_strategy": {
+          "keys": [
+            "blk_cusip"
+          ]
+        },
+        "comparisons": [
+          {
+            "column": "orig_face",
+            "tolerance": 0,
+            "tolerance_type": "abs",
+            "aggregation": "SumIgnoreNulls",
+            "required": true
+          }
+        ]
+      }
+    }
+  ]
+}
